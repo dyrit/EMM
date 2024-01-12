@@ -278,7 +278,8 @@ def main():
         # criterion = deterministic_loss
         # criterion = evidential_bm_loss
         # criterion = BM_NON_loss
-        criterion = BM_weiNIG_loss
+        if (args.pretrain_loss=='NIG'):
+            criterion = BM_weiNIG_loss
 
         # criterion = BM_NIG_loss
 
@@ -291,7 +292,7 @@ def main():
         criterion,
         optimizer,
         scheduler=scheduler,
-        num_epochs=5000,
+        num_epochs=args.pretrain_epochs,
         device=None,
         uncertainty=False,
         bookkeep=False,
@@ -312,210 +313,6 @@ def main():
 
         np.save('./EMLC/EDR/main_res/'+fname+'test_alpha_t.npy',alpha_t)
 
-        mu2 = np.array(mu)
-        al1 = np.array(alpha_t)
-        al2 = np.array(output_t[0].cpu().detach().numpy())
-        np.save('./EMLC/EDR/main_res/'+fname+'test_alpha_1.npy',al1)
-        np.save('./EMLC/EDR/main_res/'+fname+'test_alpha_2.npy',al2)
-
-        np.save('./EMLC/EDR/main_res/'+fname+'x_train.npy',x_train)
-        np.save('./EMLC/EDR/main_res/'+fname+'x_test.npy',x_test)
-        np.save('./EMLC/EDR/main_res/'+fname+'y_train.npy',y_train)
-        np.save('./EMLC/EDR/main_res/'+fname+'y_test.npy',y_test)
-
-        #al2 = al2+1
-        al1 = al1.T
-        pred1 = np.matmul(al1,mu2)
-        al2p = al2/np.repeat(np.sum(al2,axis=1).reshape(-1,1),num_classes,axis=1)
-        pred2 = np.matmul(al2p,mu2)
-        # y1 = np.array(ytest)
-        y1=y_test
-        mse2 = mean_squared_error(al1,al2)
-        mse22 = mean_squared_error(alpha_test,al2)
-
-        y1s = np.sum(y1,0)
-        col = np.where(y1s!=0)[0]
-        print('sum',y1s[col])
-        y2 = y1[:,col]
-        pred12 = pred1[:,col]
-        pred22 = pred2[:,col]
-        mse5 = mean_squared_error(al1,alpha_test)
-
-        auc_micro = metrics.roc_auc_score(y2,pred12,average='micro')
-        auc_macro = metrics.roc_auc_score(y2,pred12,average='macro')
-        print('mi:alpha1',auc_micro)
-        print('ma:alpha1',auc_macro)
-
-        auc_micro = metrics.roc_auc_score(y2,pred22,average='micro')
-        auc_macro = metrics.roc_auc_score(y2,pred22,average='macro')   
-        print('mi:alpha2',auc_micro)
-        print('ma:alpha2',auc_macro)
-
-
-        # al2 = al2+1
-        #al1 = al1.T
-        # pred1 = np.matmul(al1,mu2)
-        pred1 = np.matmul(alpha_test,mu2)
-
-        al2p = al2/np.repeat(np.sum(al2,axis=1).reshape(-1,1),num_classes,axis=1)
-        pred2 = np.matmul(al2p,mu2)
-        # y1 = np.array(ytest)
-        y1=y_test
-        y1s = np.sum(y1,0)
-        col = np.where(y1s!=0)[0]
-        y2 = y1[:,col]
-        pred12 = pred1[:,col]
-        pred22 = pred2[:,col]
-        pred3 = np.matmul(al_test,mu2)
-        pred32 = pred3[:,col]
-
-        test_auc_micro = metrics.roc_auc_score(y2,pred12,average='micro')
-        test_auc_macro = metrics.roc_auc_score(y2,pred12,average='macro')
-        print('test mi:alpha1',test_auc_micro)
-        print('test ma:alpha1',test_auc_macro)
-
-        test_auc_micro_2 = metrics.roc_auc_score(y2,pred22,average='micro')
-        test_auc_macro_2 = metrics.roc_auc_score(y2,pred22,average='macro')   
-        print('test mi:alpha2',test_auc_micro_2)
-        print('test ma:alpha2',test_auc_macro_2)
-
-        test_auc_micro_3 = metrics.roc_auc_score(y2,pred32,average='micro')
-        test_auc_macro_3 = metrics.roc_auc_score(y2,pred32,average='macro')
-        print('test mi:alpha3',test_auc_micro_3)
-        print('test ma:alpha3',test_auc_macro_3)
-        # res_f = quick_test_fixed(model_opt,xtest,ytest,dataloaders,num_classes=num_classes,num_l=num_l,device=device)
-        # print(res_f)
-        theta_p = output_t[1].detach().cpu().numpy()
-        print('theta',theta_p.shape)
-        a_p = theta_p[:,:num_classes*num_l]
-        b_p = theta_p[:,num_classes*num_l:]
-        print('comp_0',model_opt.comp_0, model_opt.comp_0.shape)
-        a_sl = model_opt.comp_0[:,:num_classes*num_l].detach().cpu().numpy()
-        b_sl = model_opt.comp_0[:,num_classes*num_l:].detach().cpu().numpy()
-        a_sl = np.repeat(a_sl,len(a_p),axis=0)
-        b_sl = np.repeat(b_sl,len(b_p),axis=0)
-
-        a_new = a_p/wnew+a_sl
-        b_new = b_p/wnew+b_sl
-
-        theta_new = a_new/(a_new+b_new)
-        print('al2p',al2p.shape)
-        pred = np.zeros((len(y_test),y_test.shape[-1]))
-        for i in range(len(y_test)):
-            pred_0 = np.matmul(al2p[i],theta_new[i].reshape(components_to_test,-1))
-            pred[i] = pred_0 
-        print('y1',ytest[:10,:])
-        print('yt',y_test[:10])
-        print('pred',pred[:10,:])
-        auc_micro10 = metrics.roc_auc_score(y2,pred[:,col],average='micro')
-        np.save('./EMLC/EDR/main_res/'+fname+'y2_sep.npy',y2)
-        np.save('./EMLC/EDR/main_res/'+fname+'y_pred_sep.npy',pred[:,col])
-
-        print('mi:alpha10',auc_micro10)
-        auc_macro10 = metrics.roc_auc_score(y2,pred[:,col],average='macro')
-        print('ma:alpha10',auc_macro10)
-        output_t = model_opt(xtrain.float().to(device))
-
-        print('output_t',output_t)
-        alpha_t = np.ones((num_classes,len(x_train)))
-        for j in range(len(x_train)):
-            xsol2,lossres=opt_alpha(mu,x_train[j,:],y_train[j,:],num_classes)
-            alpha_t[:,j]=xsol2
-
-        mu2 = np.array(mu)
-        al1 = np.array(alpha_t)
-        al2 = np.array(output_t[0].cpu().detach().numpy())
-        np.save('./EMLC/EDR/main_res/'+fname+'alpha_1.npy',al1)
-        np.save('./EMLC/EDR/main_res/'+fname+'alpha_2.npy',al2)
-
-        #al2 = al2+1
-        al1 = al1.T
-        print('alpha_t',torch.tensor(al1))
-        print('mu',torch.tensor(mu))
-        print('ytrain',ytrain)
-        print("alpha sparse",len(al1),np.sum(al1,axis=0))
-
-
-        mse3 = mean_squared_error(al1,al2)
-        mse33 = mean_squared_error(alpha_train,al2)
-
-        print("mse1",mse1)
-        print("mse2",mse2)
-        print("mse3",mse3)
-        print("mse4",mse4)
-
-
-
-        # pred1 = np.matmul(al1,mu2)
-        pred1 = np.matmul(alpha_train,mu2)
-
-        al2p = al2/np.repeat(np.sum(al2,axis=1).reshape(-1,1),num_classes,axis=1)
-        pred2 = np.matmul(al2p,mu2)
-        # y1 = np.array(ytrain)
-        y1=y_train
-        y1s = np.sum(y1,0)
-        col = np.where(y1s!=0)[0]
-        print('sum',y1s[col])
-        y2 = y1[:,col]
-        pred12 = pred1[:,col]
-        pred22 = pred2[:,col]
-
-        auc_micro = metrics.roc_auc_score(y2,pred12,average='micro')
-        auc_macro = metrics.roc_auc_score(y2,pred12,average='macro')
-        print('mi:alpha1',auc_micro)
-        print('ma:alpha1',auc_macro)
-
-        auc_micro = metrics.roc_auc_score(y2,pred22,average='micro')
-        auc_macro = metrics.roc_auc_score(y2,pred22,average='macro')   
-        print('mi:alpha2',auc_micro)
-        print('ma:alpha2',auc_macro)
-
-
-        # al2 = al2+1
-        #al1 = al1.T
-        pred1 = np.matmul(al1,mu2)
-        al2p = al2/np.repeat(np.sum(al2,axis=1).reshape(-1,1),num_classes,axis=1)
-        pred2 = np.matmul(al2p,mu2)
-        pred3 = np.matmul(al_train,mu2)
-
-        # y1 = np.array(ytrain)
-        y1=y_train
-        y1s = np.sum(y1,0)
-        col = np.where(y1s!=0)[0]
-        y2 = y1[:,col]
-        pred12 = pred1[:,col]
-        pred22 = pred2[:,col]
-        pred32 = pred3[:,col]
-
-        auc_micro = metrics.roc_auc_score(y2,pred12,average='micro')
-        auc_macro = metrics.roc_auc_score(y2,pred12,average='macro')
-        print('mi:alpha1',auc_micro)
-        print('ma:alpha1',auc_macro)
-
-        auc_micro_2 = metrics.roc_auc_score(y2,pred22,average='micro')
-        auc_macro_2 = metrics.roc_auc_score(y2,pred22,average='macro')   
-        print('mi:alpha2',auc_micro_2)
-        print('ma:alpha2',auc_macro_2)
-        auc_micro_3 = metrics.roc_auc_score(y2,pred32,average='micro')
-        auc_macro_3 = metrics.roc_auc_score(y2,pred32,average='macro')
-        print('mi:alpha3',auc_micro_3)
-        print('ma:alpha3',auc_macro_3)
-
-
-        print("mse1",mse1)
-        print("mse2",mse2)
-        print("mse3",mse3)
-        print("mse22",mse22)
-        print("mse33",mse33)
-
-        print("mse4",mse4)
-        print("mse5",mse5)
-        print(fname)
-        print('y1',ytest[:10,:])
-        print('yt',y_test[:10])
-
-
-        datapoint = [0, mse1,mse2,mse3,mse4,auc_macro,auc_macro_2,auc_macro_3,test_auc_macro,test_auc_macro_2,test_auc_macro_3,auc_macro10,test_auc_micro,test_auc_micro_2,test_auc_micro_3,auc_micro10]
         with open('./EMLC/EDR/main_res/'+fnamesub,'a') as f:
             writer_obj = csv.writer(f)
             writer_obj.writerow(datapoint)

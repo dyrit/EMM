@@ -47,5 +47,11 @@ def get_args():
     parser.add_argument('--wd', type= float, default=0, \
                     help="Weight decay")  
 
+# experiment settings
+    parser.add_argument('--pretrain_loss', type= str, default="NIG", \
+                    help="Type of loss used in weights pretraining step")
+    parser.add_argument('--pretrain_epochs', type = int, default=5000,\
+                    help="Number of weights pretraining epochs")
+
     args = parser.parse_args()
     return args, args.seed
