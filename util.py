@@ -52,7 +52,7 @@ def print_res(model_opt, x_test, y_test, mu, fname,num_classes,
     np.save('./EMLC/EDR/main_res/'+fname+'y_test.npy',y_test)
 
     #al2 = al2+1
-    al1 = al1.T
+    # al1 = al1.T
     pred1 = np.matmul(al1,mu2)
     al2p = al2/np.repeat(np.sum(al2,axis=1).reshape(-1,1),num_classes,axis=1)
     pred2 = np.matmul(al2p,mu2)
@@ -149,7 +149,7 @@ def print_res(model_opt, x_test, y_test, mu, fname,num_classes,
     output_t = model_opt(xtrain.float().to(device))
 
     al2 = np.array(output_t[0].cpu().detach().numpy())
-    al1 = al1.T
+    # al1 = al1.T
     print('alpha_t',torch.tensor(al1))
     print('mu',torch.tensor(mu))
     print('ytrain',ytrain)
