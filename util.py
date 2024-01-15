@@ -191,6 +191,9 @@ def print_res(model_opt, x_test, y_test, mu, fname,num_classes,
     print('ma:alpha2',auc_macro_2)
 
     if (bs_pred is not None):
+        mse1 = mean_squared_error(alpha_train,al_train)
+        mse4 = mean_squared_error(alpha_test,al_test)
+
         pred3 = np.matmul(al_train,mu2)
         pred32 = pred3[:,col]
 

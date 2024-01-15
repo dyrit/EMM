@@ -7,7 +7,7 @@ def get_args():
                         help="Seed for the code")
     parser.add_argument('--ds', type= str, default="Delicious", \
                     help="dataset name")
-
+# current options of dataset: 'Delicious' 'eron' 'Col5k' 'bibTex' 'eurLex'
     parser.add_argument('--fname', type= str, default="bs", \
                         help="Identifier For Script")
     parser.add_argument('--lambda_ker', type= float, default=0.1, \
