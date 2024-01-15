@@ -14,3 +14,8 @@ python EMLC/EMLC_main/main.py --seed 25 --wnew 10 \
 python EMLC/EMLC_main/main.py --seed 25 --wnew 10 \
 --pretrain_epochs 500 --ds 'Col5k' \
 --fname 'runtest' 
+
+python EMLC/EMLC_main/main.py --seed 25 --wnew 10 \
+--pretrain_epochs 500 --ds 'nus' --tr_rounds 30 \
+--train 0.0003 --test 0.005 --pool 0.01 \
+--fname 'runtest1' 

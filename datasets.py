@@ -88,6 +88,7 @@ def split(data,label=None,train_rate=0.1,candidate_rate=0.6,\
 
         #delete the candidate index from index
         candidate_index=[x for x in index if x not in test_index]
+        candidate_index = candidate_index[:int(orilen*candidate_rate)]
         return list(train_index),list(candidate_index),list(test_index)
 
 '''
