@@ -32,13 +32,16 @@ def get_args():
 
     parser.add_argument('--AL_rounds', type = int, default=10,\
                     help="Number of AL rounds")
+    parser.add_argument('--al_mtd', type= str, default="bvs", \
+                    help="Type of AL method")
+    
     
     parser.add_argument('--n_components', type = int, default=6,\
                     help="Number of mixture components")
 
     parser.add_argument('--wnew', type= float, default=10.0, \
                     help="Components update weight") 
-    
+
 # training parameters
     parser.add_argument('--optimizer', type= str, default="adam", \
                     help="Type of optimizer")
@@ -47,11 +50,44 @@ def get_args():
     parser.add_argument('--wd', type= float, default=0, \
                     help="Weight decay")  
 
+# BM_sepNN model settings
+    parser.add_argument('--m_hidden', type= int, default=1024, \
+                    help="Number of nodes per hidden layer")
+    parser.add_argument('--m_embed', type= int, default=1024, \
+                help="Number of features in embedding space")
+    parser.add_argument('--m_activation', type= str, default="softplus", \
+                    help="Type of activation function used in model")
+    parser.add_argument('--m_drop_p', type= float, default=0.1, \
+                    help="Dropout ratio")  
+    parser.add_argument('--m_decoder_type', type= str, default="deep", \
+                    help="Type of decoder for components")
+    parser.add_argument('--m_cons', type= bool, default=False, \
+                    help="Whether constrain the output")
+
+    
+
 # experiment settings
     parser.add_argument('--pretrain_loss', type= str, default="NIG", \
                     help="Type of loss used in weights pretraining step")
     parser.add_argument('--pretrain_epochs', type = int, default=5000,\
                     help="Number of weights pretraining epochs")
+
+    parser.add_argument('--tr_rounds', type = int, default=100,\
+                    help="Number of alternating training rounds")
+
+
+# label step training settings
+    parser.add_argument('--l_loss', type= str, default="NON", \
+                    help="Type of loss used in joint label training step")
+    parser.add_argument('--l_epochs', type = int, default=1,\
+                    help="Number of joint label training epochs (per step)")
+
+# weights only step training settings
+    parser.add_argument('--pi_loss', type= str, default="NIG", \
+                    help="Type of loss used in weights-only training step")
+    parser.add_argument('--pi_epochs', type = int, default=1,\
+                    help="Number of weights-only training epochs (per step)")
+
 
     args = parser.parse_args()
     return args, args.seed

@@ -237,11 +237,13 @@ def main():
         krr = KernelRidge(kernel='rbf',alpha=0.10)
         from sklearn.metrics import mean_squared_error
         krr.fit(x_train,alpha_train)
-        al_train = krr.predict(x_train)
-        mse1 = mean_squared_error(alpha_train,al_train)
-        print("mse1",mse1)
-        al_test=krr.predict(x_test)
-        mse4 = mean_squared_error(alpha_test,al_test)
+
+        krr_pred = krr.predict(x)
+        # al_train = krr.predict(x_train)
+        # mse1 = mean_squared_error(alpha_train,al_train)
+        # print("mse1",mse1)
+        # al_test=krr.predict(x_test)
+        # mse4 = mean_squared_error(alpha_test,al_test)
 
 
 
@@ -261,8 +263,12 @@ def main():
         out_size = num_l
         num_feature = x.shape[1]
         in_size = num_feature
-        bm_model = BM_sep_EDR_NN_custom(in_size = in_size,hidden_size = 1024,out_size = out_size,\
-            n_comp=num_classes,embed = 1024,drop_p = drop_p).to(device)
+        bm_model = BM_sep_EDR_NN_custom(in_size = in_size,\
+            hidden_size = args.m_hidden,out_size = out_size,\
+            n_comp=num_classes,embed = args.m_embed,\
+            cons=args.m_cons,\
+            drop_p = args.m_drop_p, activation=args.m_activation,\
+            decoder_type = args.m_decoder_type).to(device)
 
         # bm_model = BM_NN(in_size = in_size,hidden_size = 64,out_size = out_size,\
         #     n_comp=num_classes,embed = 64).to(device)
@@ -278,6 +284,9 @@ def main():
         # criterion = deterministic_loss
         # criterion = evidential_bm_loss
         # criterion = BM_NON_loss
+
+
+        #weights pretraining
         if (args.pretrain_loss=='NIG'):
             criterion = BM_weiNIG_loss
 
@@ -300,22 +309,323 @@ def main():
         fname=fname
         )
         model_opt.eval()
-        output_t = model_opt(xtest.float().to(device))
+        # output_t = model_opt(xtest.float().to(device))
         loss_all+=loss_opt
-        print('output_t',output_t)
-        alpha_t = np.ones((num_classes,len(x_test)))
-        for j in range(len(x_test)):
-            xsol2,lossres=opt_alpha(mu,x_test[j,:],y_test[j,:],num_classes)
-            alpha_t[:,j]=xsol2
-        print('alpha_t',torch.tensor(alpha_t))
-        print('mu',torch.tensor(mu))
-        print('ytest',ytest)
+        # print('output_t',output_t)
+        # alpha_t = np.ones((num_classes,len(x_test)))
+        # for j in range(len(x_test)):
+        #     xsol2,lossres=opt_alpha(mu,x_test[j,:],y_test[j,:],num_classes)
+        #     alpha_t[:,j]=xsol2
+        # print('alpha_t',torch.tensor(alpha_t))
+        # print('mu',torch.tensor(mu))
+        # print('ytest',ytest)
 
-        np.save('./EMLC/EDR/main_res/'+fname+'test_alpha_t.npy',alpha_t)
-
+        # np.save('./EMLC/EDR/main_res/'+fname+'test_alpha_t.npy',alpha_t)
+        datapoint = print_res(model_opt, x_test, y_test, mu, fname,num_classes,
+              alpha_t, num_l,wnew,n=0,\
+                alpha_test=alpha_test, alpha_train= alpha_train,\
+                train_index=train_index,test_index=test_index,\
+                handle='train_test',pi=None,bs_pred = krr_pred,\
+                    ysum=False,\
+                xtest=xtest,ytest=ytest,\
+                    x_train=x_train,y_train=y_train)
         with open('./EMLC/EDR/main_res/'+fnamesub,'a') as f:
             writer_obj = csv.writer(f)
             writer_obj.writerow(datapoint)
+
+        for iter in range(args.tr_rounds):
+            trainData=myDataset(xtrain.to(device),ytrain.to(device))
+            testData=myDataset(xtest.to(device),ytest.to(device))
+            train_dataloader=DataLoader(trainData, batch_size=500, shuffle=True)
+            test_dataloader=DataLoader(testData, batch_size=len(ytest), shuffle=False)
+            dataloaders = {
+            "train": train_dataloader,
+            "val": test_dataloader,
+        }   
+
+            bm_model = model_opt.to(device)
+            optimizer = optim.Adam(bm_model.parameters(), \
+                                   lr=1e-3, weight_decay=0)
+            if(args.l_loss=='NON'):
+                criterion = BM_sepNON_loss
+            model_opt,loss_opt = train_sep_bm(    bm_model,
+            dataloaders,
+            num_classes,
+            criterion,
+            optimizer,
+            scheduler=scheduler,
+            num_epochs=args.l_epochs,
+            device=None,
+            uncertainty=False,
+            bookkeep=True,
+            num_l = num_l,
+            fname=fname
+            )
+            loss_all+=loss_opt
+            model_opt.eval()
+            # output_t = model_opt(xtest.float().to(device))
+            datapoint = print_res(model_opt, x_test, y_test, mu, fname,num_classes,
+                alpha_t, num_l,wnew,n=iter,\
+                    alpha_test=alpha_test, alpha_train= alpha_train,\
+                    train_index=train_index,test_index=test_index,\
+                    handle='train_test',pi=None,bs_pred = krr_pred,\
+                        ysum=False,\
+                    xtest=xtest,ytest=ytest,\
+                        x_train=x_train,y_train=y_train)
+            with open('./EMLC/EDR/main_res/'+fnamesub,'a') as f:
+                writer_obj = csv.writer(f)
+                writer_obj.writerow(datapoint)
+
+            # weights-only step
+                #change data loader (maybe modify later)
+            trainData=myDataset(xtrain.to(device),alphatrain.to(device))
+            testData=myDataset(xtest.to(device),alphatest.to(device))
+            train_dataloader=DataLoader(trainData, batch_size=500, shuffle=True)
+            test_dataloader=DataLoader(testData, batch_size=len(ytest), shuffle=False)
+            dataloaders = {
+            "train": train_dataloader,
+            "val": test_dataloader,
+        }   
+
+            bm_model = model_opt.to(device)
+
+            # bm_model = BM_NN(in_size = in_size,hidden_size = 64,out_size = out_size,\
+            #     n_comp=num_classes,embed = 64).to(device)
+            pytorch_total_params = sum(p.numel() for p in bm_model.parameters())
+
+            print(" Number of Parameters: ", pytorch_total_params)
+
+            optimizer = optim.Adam(bm_model.parameters(), lr=1e-3, weight_decay=0)
+
+            if(args.pi_loss=='NIG'):
+                criterion = BM_weiNIG_loss
+            model_opt,loss_opt = train_sep_bm(    bm_model,
+            dataloaders,
+            num_classes,
+            criterion,
+            optimizer,
+            scheduler=scheduler,
+            num_epochs=args.pi_epochs,
+            device=None,
+            uncertainty=False,
+            bookkeep=False,
+            num_l = num_l,
+            fname=fname
+            )
+            loss_all+=loss_opt
+            model_opt.eval()
+
+            datapoint = print_res(model_opt, x_test, y_test, mu, fname,num_classes,
+                alpha_t, num_l,wnew,n=iter,\
+                    alpha_test=alpha_test, alpha_train= alpha_train,\
+                    train_index=train_index,test_index=test_index,\
+                    handle='train_test',pi=None,bs_pred = krr_pred,\
+                        ysum=False,\
+                    xtest=xtest,ytest=ytest,\
+                        x_train=x_train,y_train=y_train)
+            with open('./EMLC/EDR/main_res/'+fnamesub,'a') as f:
+                writer_obj = csv.writer(f)
+                writer_obj.writerow(datapoint)
+
+
+# update all data and train baseline
+        a_sl = model_opt.comp_0[:,:num_classes*num_l].detach().cpu().numpy()
+        b_sl = model_opt.comp_0[:,num_classes*num_l:].detach().cpu().numpy()
+        # a_sl = np.repeat(a_sl,len(a_p),axis=0)
+        # b_sl = np.repeat(b_sl,len(b_p),axis=0)
+
+        comp0 = a_sl/(a_sl+b_sl)
+        file_p = open('./EMLC/EDR/main_res/'+fname+'comp_0_2.npy','wb')
+        np.save(file_p,comp0)
+        num_classes = components_to_test
+        alpha_t = np.ones((num_classes,len(x)))
+        for j in range(len(x)):
+            xsol2,lossres=opt_alpha(mu,x[j,:],y[j,:],num_classes)
+            alpha_t[:,j]=xsol2
+        print('alpha_t',alpha_t)
+        print('mu',mu)
+        alpha_t = alpha_t.T
+        np.save('./EMLC/EDR/main_res/'+fname+'alpha_t.npy',alpha_t)
+
+        alpha_train = alpha_t[train_index]
+        alpha_test = alpha_t[test_index]
+        np.save('./EMLC/EDR/main_res/'+fname+'alpha_train.npy',alpha_train)
+
+        np.save('./EMLC/EDR/main_res/'+fname+'alpha_test.npy',alpha_test)
+
+        # alpha_train = alpha_t[train_ind]
+        # alpha_test = alpha_t[test_ind]
+        alphatrain = torch.tensor(alpha_train)
+        alphatest = torch.tensor(alpha_test)
+        xtrain = torch.tensor(x_train)
+        xtest = torch.tensor(x_test)
+        ytrain = torch.tensor(y_train)
+        ytest = torch.tensor(y_test)
+        print('ytest',ytest.shape)
+        ycan = torch.tensor(y_can)
+        xcan = torch.tensor(x_can)
+
+        krr.fit(x_train,alpha_train)
+        krr_pred = krr.predict(x)
+
+        trainData=myDataset(xtrain.to(device),alphatrain.to(device))
+        testData=myDataset(xtest.to(device),alphatest.to(device))
+        train_dataloader=DataLoader(trainData, batch_size=500, shuffle=True)
+        test_dataloader=DataLoader(testData, batch_size=len(ytest), shuffle=False)
+        dataloaders = {
+        "train": train_dataloader,
+        "val": test_dataloader,
+    } 
+        output_t = model_opt(xcan.float().to(device))
+
+        mu_can = np.array(output_t[0].cpu().detach().numpy())
+        v2_can = np.array(output_t[2].cpu().detach().numpy())
+        a2_can = np.array(output_t[3].cpu().detach().numpy())
+        b2_can = np.array(output_t[4].cpu().detach().numpy())
+        np.save('./EMLC/EDR/main_res/'+fname+'mu_can.npy',mu_can)
+        np.save('./EMLC/EDR/main_res/'+fname+'v2_can.npy',v2_can)
+        np.save('./EMLC/EDR/main_res/'+fname+'a2_can.npy',a2_can)
+        np.save('./EMLC/EDR/main_res/'+fname+'b2_can.npy',b2_can)
+        met = args.al_mtd
+        # met = 'evi'
+        # met = 'evicov'
+        # met = 'evicov1'
+        # met = 'evicov2'
+        if met =='bvs':
+            probs_sorted,idxs = output_t[0].sort(descending=True)
+            U = probs_sorted[:,0]-probs_sorted[:,1]
+            ind_add = list(np.array(candidate_index)[list(U.sort()[1][:100].cpu().numpy())])
+            train_index = train_index+ind_add
+            for ind_a in ind_add:
+                candidate_index.remove(ind_a)
+        elif met =='evi':
+            np.save('./EMLC/EDR/main_res/'+fname+'probs.npy',output_t[0].detach().cpu().numpy())
+
+            probs = np.mean(b2_can/(v2_can*(a2_can-1)),axis=1)
+            np.save('./EMLC/EDR/main_res/'+fname+'var.npy',probs.detach().cpu().numpy())
+
+            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:100])])
+            train_index = train_index+ind_add
+            print(ind_add)
+            for ind_a in ind_add:
+                candidate_index.remove(ind_a)
+        elif met =='evicov':
+            np.save('./EMLC/EDR/main_res/'+fname+'probs.npy',output_t[0].detach().cpu().numpy())
+            theta_p = output_t[1].detach().cpu().numpy()
+            a_p = theta_p[:,:num_classes*num_l]
+            b_p = theta_p[:,num_classes*num_l:]
+            a_sl = model_opt.comp_0[:,:num_classes*num_l].detach().cpu().numpy()
+            b_sl = model_opt.comp_0[:,num_classes*num_l:].detach().cpu().numpy()
+            a_sl = np.repeat(a_sl,len(a_p),axis=0)
+            b_sl = np.repeat(b_sl,len(b_p),axis=0)
+
+            a_new = a_p/wnew+a_sl
+            b_new = b_p/wnew+b_sl
+
+
+            theta_new = a_new/(a_new+b_new)
+            print('thetashape',theta_new.shape)
+
+            pred = np.zeros((len(y_can),y_can.shape[-1]))
+            for i in range(len(y_can)):
+                pred_0 = np.matmul(mu_can[i],theta_new[i].reshape(components_to_test,-1))
+                pred[i] = pred_0 
+            print('predshape',pred.shape)
+            cov = np.matmul(pred,pred.T)
+            np.save('./EMLC/EDR/main_res/'+fname+'cov_can.npy',cov)
+
+            print('covshape0,cov.shape')
+            probs = np.mean(b2_can/(v2_can*(a2_can-1)),axis=1)+np.mean(cov,axis=1)
+            np.save('./EMLC/EDR/main_res/'+fname+'var.npy',probs)
+
+            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:100])])
+            train_index = train_index+ind_add
+            print(ind_add)
+            for ind_a in ind_add:
+                candidate_index.remove(ind_a)
+
+        elif met =='evicov1':
+            np.save('./EMLC/EDR/main_res/'+fname+'probs.npy',output_t[0].detach().cpu().numpy())
+            theta_p = output_t[1].detach().cpu().numpy()
+            a_p = theta_p[:,:num_classes*num_l]
+            b_p = theta_p[:,num_classes*num_l:]
+            a_sl = model_opt.comp_0[:,:num_classes*num_l].detach().cpu().numpy()
+            b_sl = model_opt.comp_0[:,num_classes*num_l:].detach().cpu().numpy()
+            a_sl = np.repeat(a_sl,len(a_p),axis=0)
+            b_sl = np.repeat(b_sl,len(b_p),axis=0)
+
+            a_new = a_p/wnew+a_sl
+            b_new = b_p/wnew+b_sl
+
+
+            theta_new = a_new/(a_new+b_new)
+
+            pred = np.zeros((len(y_can),y_can.shape[-1]))
+            cov1 = np.zeros((len(y_can),y_can.shape[-1]))
+            for i in range(len(y_can)):
+                pred_0 = np.matmul(mu_can[i],theta_new[i].reshape(components_to_test,-1))
+                pred[i] = pred_0 
+            print('predshape',pred.shape)
+            cov = np.matmul(pred,pred.T)
+            np.save('./EMLC/EDR/main_res/'+fname+'cov_can.npy',cov)
+
+            print('covshape0,cov.shape')
+            probs = np.mean(b2_can/(v2_can*(a2_can-1)),axis=1)+np.mean(cov,axis=1)
+            np.save('./EMLC/EDR/main_res/'+fname+'var.npy',probs)
+
+            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:100])])
+            train_index = train_index+ind_add
+            print(ind_add)
+            for ind_a in ind_add:
+                candidate_index.remove(ind_a)
+        elif met =='evicov2':
+            np.save('./EMLC/EDR/main_res/'+fname+'probs.npy',output_t[0].detach().cpu().numpy())
+            theta_p = output_t[1].detach().cpu().numpy()
+            a_p = theta_p[:,:num_classes*num_l]
+            b_p = theta_p[:,num_classes*num_l:]
+            a_sl = model_opt.comp_0[:,:num_classes*num_l].detach().cpu().numpy()
+            b_sl = model_opt.comp_0[:,num_classes*num_l:].detach().cpu().numpy()
+            a_sl = np.repeat(a_sl,len(a_p),axis=0)
+            b_sl = np.repeat(b_sl,len(b_p),axis=0)
+
+            a_new = a_p/wnew+a_sl
+            b_new = b_p/wnew+b_sl
+
+
+            theta_new = a_new/(a_new+b_new)
+
+            pred = np.zeros((len(y_can),y_can.shape[-1]))
+            cov1 = np.zeros((len(y_can)))
+            cov2 = np.zeros((len(y_can),y_can.shape[-1],y_can.shape[-1]))
+            for i in range(len(y_can)):
+                pred_0 = np.matmul(mu_can[i],theta_new[i].reshape(components_to_test,-1))
+                print('pred_0',pred_0.shape)
+                pred[i] = pred_0 
+                covm = model_opt.compute_cov()
+                # print('pis',output_t[0].cpu().detach().numpy())
+
+                for k in range(components_to_test):
+                    # print('pis',output_t[0].cpu().detach().numpy()[k])
+                    # cov2[i]+=output_t[0].cpu().detach().numpy()[:,k]*covm[k].cpu().detach().numpy()
+                    cov2[i]+=mu_can[i][k]*covm[k].cpu().detach().numpy()
+
+                cov2[i]-=np.matmul(pred_0,pred_0.T)
+                cov1[i]=np.linalg.det(cov2[i])
+            print('predshape',pred.shape)
+            cov = np.matmul(pred,pred.T)
+            np.save('./EMLC/EDR/main_res/'+fname+'cov_can.npy',cov)
+
+            print('covshape0',cov.shape)
+            probs = np.mean(b2_can/(v2_can*(a2_can-1)),axis=1)+(cov1)
+            np.save('./EMLC/EDR/main_res/'+fname+'var.npy',probs)
+
+            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:100])])
+            train_index = train_index+ind_add
+            print(ind_add)
+            for ind_a in ind_add:
+                candidate_index.remove(ind_a)
+        np.save('./EMLC/EDR/main_res/'+fname+'loss_all.npy',loss_all)
+
 
 if __name__ == "__main__":
     main()    

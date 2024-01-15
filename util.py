@@ -1,6 +1,11 @@
 import torch
 import random
 import numpy as np
+from sklearn import metrics
+from sklearn.metrics import mean_squared_error
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print('Using {} device'.format(device))
 
 def deterministic(seed):
     torch.manual_seed(seed)
@@ -10,16 +15,40 @@ def deterministic(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-def print_res(model, x, y, pi=None):
+def print_res(model_opt, x_test, y_test, mu, fname,num_classes,
+              ground_truth, num_l,wnew,n=0,\
+                alpha_test=None, alpha_train= None,\
+                train_index=None,test_index=None,\
+                handle='train_test',pi=None,bs_pred = None,ysum=False,\
+                xtest=None,ytest=None,x_train=None,y_train=None):
+    mse1 = 0
+    mse4 = 0
+    components_to_test = num_classes
     mu2 = np.array(mu)
-    al1 = np.array(alpha_t)
+
+    if (alpha_test is None):
+        alpha_test = ground_truth[test_index]
+        alpha_train = ground_truth[train_index]
+
+    if(xtest is None):
+        xtest = torch.tensor(x_test)
+        ytest = torch.tensor(y_test)
+        if(handle=='train_test'): 
+            xtrain = torch.tensor(x_train)
+            ytrain = torch.tensor(y_train)
+    
+    al1 = np.array(alpha_test)
+    output_t = model_opt(xtest.float().to(device))
+
     al2 = np.array(output_t[0].cpu().detach().numpy())
     np.save('./EMLC/EDR/main_res/'+fname+'test_alpha_1.npy',al1)
     np.save('./EMLC/EDR/main_res/'+fname+'test_alpha_2.npy',al2)
 
-    np.save('./EMLC/EDR/main_res/'+fname+'x_train.npy',x_train)
+    if(handle=='train_test'):
+        np.save('./EMLC/EDR/main_res/'+fname+'x_train.npy',x_train)
+        np.save('./EMLC/EDR/main_res/'+fname+'y_train.npy',y_train)
+
     np.save('./EMLC/EDR/main_res/'+fname+'x_test.npy',x_test)
-    np.save('./EMLC/EDR/main_res/'+fname+'y_train.npy',y_train)
     np.save('./EMLC/EDR/main_res/'+fname+'y_test.npy',y_test)
 
     #al2 = al2+1
@@ -32,28 +61,22 @@ def print_res(model, x, y, pi=None):
     mse2 = mean_squared_error(al1,al2)
     mse22 = mean_squared_error(alpha_test,al2)
 
-    y1s = np.sum(y1,0)
-    col = np.where(y1s!=0)[0]
-    print('sum',y1s[col])
-    y2 = y1[:,col]
-    pred12 = pred1[:,col]
-    pred22 = pred2[:,col]
-    mse5 = mean_squared_error(al1,alpha_test)
-
-    auc_micro = metrics.roc_auc_score(y2,pred12,average='micro')
-    auc_macro = metrics.roc_auc_score(y2,pred12,average='macro')
-    print('mi:alpha1',auc_micro)
-    print('ma:alpha1',auc_macro)
-
-    auc_micro = metrics.roc_auc_score(y2,pred22,average='micro')
-    auc_macro = metrics.roc_auc_score(y2,pred22,average='macro')   
-    print('mi:alpha2',auc_micro)
-    print('ma:alpha2',auc_macro)
+    # if ysum:
+    #     y1s = np.sum(y1,0)
+    #     col = np.where(y1s!=0)[0]
+    #     # print('sum',y1s[col])
+    #     y2 = y1[:,col]
+    #     pred12 = pred1[:,col]
+    #     pred22 = pred2[:,col]
+    #     mse5 = mean_squared_error(al1,alpha_test)
+    # else:
+    #     y2=y1
+    #     pred12 = pred1
+    #     pred22 = pred2
 
 
-    # al2 = al2+1
-    #al1 = al1.T
-    # pred1 = np.matmul(al1,mu2)
+
+
     pred1 = np.matmul(alpha_test,mu2)
 
     al2p = al2/np.repeat(np.sum(al2,axis=1).reshape(-1,1),num_classes,axis=1)
@@ -65,8 +88,8 @@ def print_res(model, x, y, pi=None):
     y2 = y1[:,col]
     pred12 = pred1[:,col]
     pred22 = pred2[:,col]
-    pred3 = np.matmul(al_test,mu2)
-    pred32 = pred3[:,col]
+
+
 
     test_auc_micro = metrics.roc_auc_score(y2,pred12,average='micro')
     test_auc_macro = metrics.roc_auc_score(y2,pred12,average='macro')
@@ -78,10 +101,15 @@ def print_res(model, x, y, pi=None):
     print('test mi:alpha2',test_auc_micro_2)
     print('test ma:alpha2',test_auc_macro_2)
 
-    test_auc_micro_3 = metrics.roc_auc_score(y2,pred32,average='micro')
-    test_auc_macro_3 = metrics.roc_auc_score(y2,pred32,average='macro')
-    print('test mi:alpha3',test_auc_micro_3)
-    print('test ma:alpha3',test_auc_macro_3)
+    if (bs_pred is not None):
+        al_train = bs_pred[train_index]
+        al_test = bs_pred[test_index]
+        pred3 = np.matmul(al_test,mu2)
+        pred32 = pred3[:,col]
+        test_auc_micro_3 = metrics.roc_auc_score(y2,pred32,average='micro')
+        test_auc_macro_3 = metrics.roc_auc_score(y2,pred32,average='macro')
+        print('test mi:alpha3',test_auc_micro_3)
+        print('test ma:alpha3',test_auc_macro_3)
     # res_f = quick_test_fixed(model_opt,xtest,ytest,dataloaders,num_classes=num_classes,num_l=num_l,device=device)
     # print(res_f)
     theta_p = output_t[1].detach().cpu().numpy()
@@ -113,21 +141,14 @@ def print_res(model, x, y, pi=None):
     print('mi:alpha10',auc_micro10)
     auc_macro10 = metrics.roc_auc_score(y2,pred[:,col],average='macro')
     print('ma:alpha10',auc_macro10)
+
+
+# training results 
+    #al2 = al2+1
+    al1 = np.array(alpha_train)
     output_t = model_opt(xtrain.float().to(device))
 
-    print('output_t',output_t)
-    alpha_t = np.ones((num_classes,len(x_train)))
-    for j in range(len(x_train)):
-        xsol2,lossres=opt_alpha(mu,x_train[j,:],y_train[j,:],num_classes)
-        alpha_t[:,j]=xsol2
-
-    mu2 = np.array(mu)
-    al1 = np.array(alpha_t)
     al2 = np.array(output_t[0].cpu().detach().numpy())
-    np.save('./EMLC/EDR/main_res/'+fname+'alpha_1.npy',al1)
-    np.save('./EMLC/EDR/main_res/'+fname+'alpha_2.npy',al2)
-
-    #al2 = al2+1
     al1 = al1.T
     print('alpha_t',torch.tensor(al1))
     print('mu',torch.tensor(mu))
@@ -144,38 +165,9 @@ def print_res(model, x, y, pi=None):
     print("mse4",mse4)
 
 
-
-    # pred1 = np.matmul(al1,mu2)
-    pred1 = np.matmul(alpha_train,mu2)
-
-    al2p = al2/np.repeat(np.sum(al2,axis=1).reshape(-1,1),num_classes,axis=1)
-    pred2 = np.matmul(al2p,mu2)
-    # y1 = np.array(ytrain)
-    y1=y_train
-    y1s = np.sum(y1,0)
-    col = np.where(y1s!=0)[0]
-    print('sum',y1s[col])
-    y2 = y1[:,col]
-    pred12 = pred1[:,col]
-    pred22 = pred2[:,col]
-
-    auc_micro = metrics.roc_auc_score(y2,pred12,average='micro')
-    auc_macro = metrics.roc_auc_score(y2,pred12,average='macro')
-    print('mi:alpha1',auc_micro)
-    print('ma:alpha1',auc_macro)
-
-    auc_micro = metrics.roc_auc_score(y2,pred22,average='micro')
-    auc_macro = metrics.roc_auc_score(y2,pred22,average='macro')   
-    print('mi:alpha2',auc_micro)
-    print('ma:alpha2',auc_macro)
-
-
-    # al2 = al2+1
-    #al1 = al1.T
     pred1 = np.matmul(al1,mu2)
     al2p = al2/np.repeat(np.sum(al2,axis=1).reshape(-1,1),num_classes,axis=1)
     pred2 = np.matmul(al2p,mu2)
-    pred3 = np.matmul(al_train,mu2)
 
     # y1 = np.array(ytrain)
     y1=y_train
@@ -184,7 +176,6 @@ def print_res(model, x, y, pi=None):
     y2 = y1[:,col]
     pred12 = pred1[:,col]
     pred22 = pred2[:,col]
-    pred32 = pred3[:,col]
 
     auc_micro = metrics.roc_auc_score(y2,pred12,average='micro')
     auc_macro = metrics.roc_auc_score(y2,pred12,average='macro')
@@ -195,10 +186,15 @@ def print_res(model, x, y, pi=None):
     auc_macro_2 = metrics.roc_auc_score(y2,pred22,average='macro')   
     print('mi:alpha2',auc_micro_2)
     print('ma:alpha2',auc_macro_2)
-    auc_micro_3 = metrics.roc_auc_score(y2,pred32,average='micro')
-    auc_macro_3 = metrics.roc_auc_score(y2,pred32,average='macro')
-    print('mi:alpha3',auc_micro_3)
-    print('ma:alpha3',auc_macro_3)
+
+    if (bs_pred is not None):
+        pred3 = np.matmul(al_train,mu2)
+        pred32 = pred3[:,col]
+
+        auc_micro_3 = metrics.roc_auc_score(y2,pred32,average='micro')
+        auc_macro_3 = metrics.roc_auc_score(y2,pred32,average='macro')
+        print('mi:alpha3',auc_micro_3)
+        print('ma:alpha3',auc_macro_3)
 
 
     print("mse1",mse1)
@@ -208,12 +204,16 @@ def print_res(model, x, y, pi=None):
     print("mse33",mse33)
 
     print("mse4",mse4)
-    print("mse5",mse5)
-    print(fname)
-    print('y1',ytest[:10,:])
-    print('yt',y_test[:10])
+    # print("mse5",mse5)
+    # print(fname)
+    # print('y1',ytest[:10,:])
+    # print('yt',y_test[:10])
 
+    if (bs_pred is not None):
+        datapoint = [n, mse1,mse2,mse3,mse4,auc_macro,auc_macro_2,auc_macro_3,test_auc_macro,test_auc_macro_2,test_auc_macro_3,auc_macro10,\
+                     test_auc_micro,test_auc_micro_2,test_auc_micro_3,auc_micro10]
+    else:
+        datapoint = [n,mse2,mse3,auc_macro,auc_macro_2,test_auc_macro,test_auc_macro_2,auc_macro10,test_auc_micro,test_auc_micro_2,auc_micro10]
 
-    datapoint = [0, mse1,mse2,mse3,mse4,auc_macro,auc_macro_2,auc_macro_3,test_auc_macro,test_auc_macro_2,test_auc_macro_3,auc_macro10,test_auc_micro,test_auc_micro_2,test_auc_micro_3,auc_micro10]
 
     return datapoint
