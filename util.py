@@ -30,6 +30,9 @@ def print_res(model_opt, x_test, y_test, mu, fname,num_classes,
         alpha_test = ground_truth[test_index]
         alpha_train = ground_truth[train_index]
 
+    if(handle=='train_test'): 
+        xtrain = torch.tensor(x_train)
+        ytrain = torch.tensor(y_train)
     if(xtest is None):
         xtest = torch.tensor(x_test)
         ytest = torch.tensor(y_test)
