@@ -191,11 +191,11 @@ def nonsep_mse_loss(y, outputs, epoch_num, num_classes, \
     # print('theta',theta.shape,theta)
     a_p = theta[:,:num_classes*num_l]
     b_p = theta[:,num_classes*num_l:]
-    print('comp',model.comp_0.shape)
+    # print('comp',model.comp_0.shape)
 
     a_sl = model.comp_0[:,:num_classes*num_l]
     b_sl = model.comp_0[:,num_classes*num_l:]
-    print('a_sl',a_sl.shape)
+    # print('a_sl',a_sl.shape)
 
     a_new = a_p/wnew+a_sl
     b_new = b_p/wnew+b_sl
@@ -219,7 +219,7 @@ def nonsep_mse_loss(y, outputs, epoch_num, num_classes, \
     #     pred[i]=torch.matmul(pi[i],theta_new[i].view(num_classes,num_l)).view(num_l)
 
     pred = torch.matmul(pi.view(-1,1,num_classes),theta_new)
-    print('pred',pred.shape)
+    # print('pred',pred.shape)
     # print('y',y.shape)
     loss = non_mse( pred.view(-1,num_l), y)
     model.deupdate_comp(model.comp_1)
@@ -252,7 +252,7 @@ def BM_weiNIG_loss(output, target, epoch_num, num_classes=0, \
     if not device:
         device = get_device()
     alpha = output[0].to(device)
-    print('alpha',alpha.shape,alpha)
+    # print('alpha',alpha.shape,alpha)
     output_t = [output[0],output[2],output[3],output[4]]
     Reg_loss = torch.mean((torch.sum(alpha,dim=1)-1)**2)
     # print('target',target)

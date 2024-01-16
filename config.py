@@ -74,6 +74,8 @@ def get_args():
 
     parser.add_argument('--tr_rounds', type = int, default=100,\
                     help="Number of alternating training rounds")
+    parser.add_argument('--bookkeep', type = str, default='No',\
+                    help="Type of book keeping of components")
 
 
 # label step training settings

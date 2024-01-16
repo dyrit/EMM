@@ -344,8 +344,11 @@ def main():
         }   
 
             bm_model = model_opt.to(device)
-            optimizer = optim.Adam(bm_model.parameters(), \
+            # optimizer = optim.Adam(bm_model.parameters(), \
+            #                        lr=1e-3, weight_decay=0)
+            optimizer = optim.Adam(bm_model.decoder2.parameters(), \
                                    lr=1e-3, weight_decay=0)
+
             if(args.l_loss=='NON'):
                 criterion = BM_sepNON_loss
             model_opt,loss_opt = train_sep_bm(    bm_model,

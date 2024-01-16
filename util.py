@@ -143,6 +143,9 @@ def print_res(model_opt, x_test, y_test, mu, fname,num_classes,
 
     print('mi:alpha10',auc_micro10)
     auc_macro10 = metrics.roc_auc_score(y2,pred[:,col],average='macro')
+    print('y2_print',y2[:20])
+    print('pred_print',pred[:20])
+    
     print('ma:alpha10',auc_macro10)
 
 
