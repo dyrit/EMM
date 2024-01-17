@@ -174,6 +174,22 @@ def non_mse_loss(y, outputs, epoch_num, num_classes, annealing_step, device=None
 
     return loss
 
+def ml_nn_loss(y, outputs, epoch_num, num_classes, \
+                    annealing_step, model,device=None,\
+                        lamb=1e-2,num_l=6, wnew=100):
+    if not device:
+        device = get_device()
+    y = y.to(device)
+    # alpha = alpha.to(device)
+    # non_mse = nn.MSELoss()
+    non_mse = nn.MultiLabelSoftMarginLoss()
+
+    # print("outputs",outputs[0].shape,outputs)
+    # print("y",y)
+    pi = outputs
+    loss = non_mse( pi.view(-1,num_l), y)
+    return loss
+
 def nonsep_mse_loss(y, outputs, epoch_num, num_classes, \
                     annealing_step, model,device=None,\
                         lamb=1e-2,num_l=6, wnew=100):
@@ -287,6 +303,14 @@ def BM_sepNON_loss(output, target, epoch_num, num_classes=0, \
     )
     return loss
 
+def ML_NN_loss(output, target, epoch_num, num_classes=0, \
+                       annealing_step=10, device=None,model=None,num_l = 13):
+    if not device:
+        device = get_device()
+    loss = torch.mean(
+        ml_nn_loss(target, output, epoch_num, num_classes, annealing_step, device=device,model=model,num_l=target.shape[-1])
+    )
+    return loss
 
 def BM_sq_loss(output, target, epoch_num, num_classes=0, \
                        annealing_step=10, device=None,model=None,num_l = 13):

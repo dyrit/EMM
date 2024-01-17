@@ -81,7 +81,11 @@ def train_sep_bm(    model,
                         # print('labels',labels)
                         outputs = model(inputs)
                         # print('outputs',outputs)
-
+                        if bookkeep:
+                            theta_s = outputs[1].to(device)
+                            print('theta_keep',theta_s.shape,theta_s)
+                            theta_s = theta_s.sum(dim=0).view(-1,2*num_classes*num_l)
+                            comp_sum+=theta_s.detach().cpu().numpy()
 
                         loss = criterion(outputs, y.float(), epoch,\
                             num_classes=num_classes, num_l = num_l,\
@@ -107,8 +111,8 @@ def train_sep_bm(    model,
                 # epoch_acc = running_corrects.double() / len(dataloaders[phase].dataset)
                 print('epoch loss',epoch_loss)
                 loss_List.append(epoch_loss)
-                # if bookkeep:
-                #     model.update_comp(comp_sum)
+                if bookkeep:
+                    model.update_comp(comp_sum/ len(dataloaders[phase].dataset))
                 # losses["loss"].append(epoch_loss)
                 # losses["phase"].append(phase)
                 # losses["epoch"].append(epoch)
@@ -176,6 +180,8 @@ def main():
     print('test',len(test_index))
     print('pool',len(candidate_index))
     loss_all = []
+    if (args.bookkeep == 'sepopt'):
+        bk = True
     for iter_al in range(args.AL_rounds):
         x_train = x[train_index]
         x_test = x[test_index]
@@ -379,8 +385,71 @@ def main():
                 writer_obj = csv.writer(f)
                 writer_obj.writerow(datapoint)
 
+# MSM for weights step
+            if args.msm_step:
+                trainData=myDataset(xtrain.to(device),ytrain.to(device))
+                testData=myDataset(xtest.to(device),ytest.to(device))
+                train_dataloader=DataLoader(trainData, batch_size=500, shuffle=True)
+                test_dataloader=DataLoader(testData, batch_size=len(ytest), shuffle=False)
+                dataloaders = {
+                "train": train_dataloader,
+                "val": test_dataloader,
+            }   
+
+                bm_model = model_opt.to(device)
+                # optimizer = optim.Adam(bm_model.parameters(), \
+                #                        lr=1e-3, weight_decay=0)
+                optimizer = optim.Adam(bm_model.encoder.parameters(), \
+                                    lr=1e-3, weight_decay=0)
+                optimizer.add_param_group({'params': bm_model.decoder1.parameters()})
+                if(args.l_loss=='NON'):
+                    criterion = BM_sepNON_loss
+                model_opt,loss_opt = train_sep_bm(    bm_model,
+                dataloaders,
+                num_classes,
+                criterion,
+                optimizer,
+                scheduler=scheduler,
+                num_epochs=args.msm_epochs,
+                device=None,
+                uncertainty=False,
+                bookkeep=True,
+                num_l = num_l,
+                fname=fname
+                )
+                loss_all+=loss_opt
+                model_opt.eval()
+                # output_t = model_opt(xtest.float().to(device))
+                datapoint = print_res(model_opt, x_test, y_test, mu, fname,num_classes,
+                    alpha_t, num_l,wnew,n=iter,\
+                        alpha_test=alpha_test, alpha_train= alpha_train,\
+                        train_index=train_index,test_index=test_index,\
+                        handle='train_test',pi=None,bs_pred = krr_pred,\
+                            ysum=False,\
+                        xtest=xtest,ytest=ytest,\
+                            x_train=x_train,y_train=y_train)
+                with open('./EMLC/EDR/main_res/'+fnamesub,'a') as f:
+                    writer_obj = csv.writer(f)
+                    writer_obj.writerow(datapoint)
+
             # weights-only step
                 #change data loader (maybe modify later)
+            if args.opt_mu:
+                print('opt!')
+                a_sl = model_opt.comp_0[:,:num_classes*num_l].detach().cpu().numpy()
+                b_sl = model_opt.comp_0[:,num_classes*num_l:].detach().cpu().numpy()
+                mu = a_sl/(a_sl+b_sl)
+                mu = mu.reshape(num_classes,num_l)
+                alpha_t = np.ones((num_classes,len(x)))
+                for j in range(len(x)):
+                    xsol2,lossres=opt_alpha(mu,x[j,:],y[j,:],num_classes)
+                    alpha_t[:,j]=xsol2
+                alpha_t = alpha_t.T                
+                alpha_train = alpha_t[train_index]
+                alpha_test = alpha_t[test_index]
+                alphatrain = torch.tensor(alpha_train)
+                alphatest = torch.tensor(alpha_test)
+
             trainData=myDataset(xtrain.to(device),alphatrain.to(device))
             testData=myDataset(xtest.to(device),alphatest.to(device))
             train_dataloader=DataLoader(trainData, batch_size=500, shuffle=True)
@@ -417,7 +486,10 @@ def main():
             )
             loss_all+=loss_opt
             model_opt.eval()
-
+            if args.opt_mu:
+                print('opt!')
+                krr.fit(x_train,alpha_train)
+                krr_pred = krr.predict(x)
             datapoint = print_res(model_opt, x_test, y_test, mu, fname,num_classes,
                 alpha_t, num_l,wnew,n=iter,\
                     alpha_test=alpha_test, alpha_train= alpha_train,\

@@ -77,6 +77,13 @@ def get_args():
     parser.add_argument('--bookkeep', type = str, default='No',\
                     help="Type of book keeping of components")
 
+    parser.add_argument('--msm_step', type= bool, default=False, \
+                    help="Whether use msm to train weights")
+    parser.add_argument('--msm_epochs', type = int, default=1,\
+                    help="Number of MSM training epochs (per step)")
+
+    parser.add_argument('--opt_mu', type= bool, default=False, \
+                    help="Whether optimize new alpha")
 
 # label step training settings
     parser.add_argument('--l_loss', type= str, default="NON", \
