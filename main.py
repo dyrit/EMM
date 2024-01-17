@@ -157,7 +157,7 @@ def main():
 
     fname = '0112'+args.ds+args.fname
     fnamesub = fname+'.csv'
-    header = ['comps','mse1','mse2','mse3','mse4','train_auc',\
+    header = ['step','mse1','mse2','mse3','mse4','train_auc',\
               'train_auc2','train_auc3','test_auc',\
                 'test_auc2','test_auc3','micro_auc','micro_auc2',\
                     'micro_auc3','micro_auc4']
