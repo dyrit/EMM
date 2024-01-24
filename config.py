@@ -77,6 +77,9 @@ def get_args():
     parser.add_argument('--bookkeep', type = str, default='No',\
                     help="Type of book keeping of components")
 
+    parser.add_argument('--bk_w', type = float, default=1,\
+                    help="Book keeping update weight")
+
     parser.add_argument('--msm_step', type= bool, default=False, \
                     help="Whether use msm to train weights")
     parser.add_argument('--msm_epochs', type = int, default=1,\

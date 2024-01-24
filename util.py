@@ -226,3 +226,95 @@ def print_res(model_opt, x_test, y_test, mu, fname,num_classes,
 
 
     return datapoint
+
+def prediction(model_opt, x_test, y_test, mu, fname,num_classes,
+              ground_truth, num_l,wnew,n=0,\
+                alpha_test=None, alpha_train= None,\
+                train_index=None,test_index=None,\
+                handle='train_test',pi=None,bs_pred = None,ysum=False,\
+                xtest=None,ytest=None,x_train=None,y_train=None):
+    mse1 = 0
+    mse4 = 0
+    components_to_test = num_classes
+    mu2 = np.array(mu)
+
+    if (alpha_test is None):
+        alpha_test = ground_truth[test_index]
+        alpha_train = ground_truth[train_index]
+
+    if(handle=='train_test'): 
+        xtrain = torch.tensor(x_train)
+        ytrain = torch.tensor(y_train)
+    if(xtest is None):
+        xtest = torch.tensor(x_test)
+        ytest = torch.tensor(y_test)
+        if(handle=='train_test'): 
+            xtrain = torch.tensor(x_train)
+            ytrain = torch.tensor(y_train)
+    
+    al1 = np.array(alpha_test)
+    output_t = model_opt(xtest.float().to(device))
+
+    al2 = np.array(output_t[0].cpu().detach().numpy())
+
+    #al2 = al2+1
+    # al1 = al1.T
+    pred1 = np.matmul(al1,mu2)
+    al2p = al2/np.repeat(np.sum(al2,axis=1).reshape(-1,1),num_classes,axis=1)
+    pred2 = np.matmul(al2p,mu2)
+    # y1 = np.array(ytest)
+    y1=y_test
+    mse2 = mean_squared_error(al1,al2)
+    mse22 = mean_squared_error(alpha_test,al2)
+
+    # if ysum:
+    #     y1s = np.sum(y1,0)
+    #     col = np.where(y1s!=0)[0]
+    #     # print('sum',y1s[col])
+    #     y2 = y1[:,col]
+    #     pred12 = pred1[:,col]
+    #     pred22 = pred2[:,col]
+    #     mse5 = mean_squared_error(al1,alpha_test)
+    # else:
+    #     y2=y1
+    #     pred12 = pred1
+    #     pred22 = pred2
+
+
+
+
+    pred1 = np.matmul(alpha_test,mu2)
+
+    al2p = al2/np.repeat(np.sum(al2,axis=1).reshape(-1,1),num_classes,axis=1)
+    pred2 = np.matmul(al2p,mu2)
+    # y1 = np.array(ytest)
+    y1=y_test
+    y1s = np.sum(y1,0)
+    col = np.where(y1s!=0)[0]
+    y2 = y1[:,col]
+    pred12 = pred1[:,col]
+    pred22 = pred2[:,col]
+
+
+
+    theta_p = output_t[1].detach().cpu().numpy()
+    print('theta',theta_p.shape)
+    a_p = theta_p[:,:num_classes*num_l]
+    b_p = theta_p[:,num_classes*num_l:]
+    print('comp_0',model_opt.comp_0, model_opt.comp_0.shape)
+    a_sl = model_opt.comp_0[:,:num_classes*num_l].detach().cpu().numpy()
+    b_sl = model_opt.comp_0[:,num_classes*num_l:].detach().cpu().numpy()
+    a_sl = np.repeat(a_sl,len(a_p),axis=0)
+    b_sl = np.repeat(b_sl,len(b_p),axis=0)
+
+    a_new = a_p/wnew+a_sl
+    b_new = b_p/wnew+b_sl
+
+    theta_new = a_new/(a_new+b_new)
+    print('al2p',al2p.shape)
+    pred = np.zeros((len(y_test),y_test.shape[-1]))
+    for i in range(len(y_test)):
+        pred_0 = np.matmul(al2p[i],theta_new[i].reshape(components_to_test,-1))
+        pred[i] = pred_0 
+
+    return y2,pred22, pred[:,col]

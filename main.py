@@ -15,7 +15,7 @@ from sklearn import metrics
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import coverage_error
 from sklearn.metrics import label_ranking_average_precision_score
-
+from sklearn.metrics.pairwise import cosine_similarity
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 
@@ -34,6 +34,7 @@ def train_sep_bm(    model,
     device=None,
     uncertainty=False,
     bookkeep = False,
+    bk_w = 1,
     num_l = 13, fname='1'
 ):
     since = time.time()
@@ -112,7 +113,7 @@ def train_sep_bm(    model,
                 print('epoch loss',epoch_loss)
                 loss_List.append(epoch_loss)
                 if bookkeep:
-                    model.update_comp(comp_sum/ len(dataloaders[phase].dataset))
+                    model.update_comp(comp_sum*bk_w/ len(dataloaders[phase].dataset))
                 # losses["loss"].append(epoch_loss)
                 # losses["phase"].append(phase)
                 # losses["epoch"].append(epoch)
@@ -155,7 +156,7 @@ def train_sep_bm(    model,
 def main():
     args,SEED = get_args()
 
-    fname = '0112'+args.ds+args.fname
+    fname = '0122'+args.ds+args.fname
     fnamesub = fname+'.csv'
     header = ['step','mse1','mse2','mse3','mse4','train_auc',\
               'train_auc2','train_auc3','test_auc',\
@@ -338,7 +339,22 @@ def main():
         with open('./EMLC/EDR/main_res/'+fnamesub,'a') as f:
             writer_obj = csv.writer(f)
             writer_obj.writerow(datapoint)
+        test_auc_opt = datapoint[-5]
+        y_test_opt,pred22_opt,pred_opt = prediction(model_opt, x_test, y_test, mu, fname,num_classes,
+              alpha_t, num_l,wnew,n=0,\
+                alpha_test=alpha_test, alpha_train= alpha_train,\
+                train_index=train_index,test_index=test_index,\
+                handle='train_test',pi=None,bs_pred = krr_pred,\
+                    ysum=False,\
+                xtest=xtest,ytest=ytest,\
+                    x_train=x_train,y_train=y_train)
 
+        np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+\
+            '_pred22_opt.npy',pred22_opt)
+        np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+\
+            '_pred_opt.npy',pred_opt)
+        np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+\
+            '_y_opt.npy',y_test_opt)
         for iter in range(args.tr_rounds):
             trainData=myDataset(xtrain.to(device),ytrain.to(device))
             testData=myDataset(xtest.to(device),ytest.to(device))
@@ -367,6 +383,7 @@ def main():
             device=None,
             uncertainty=False,
             bookkeep=True,
+            bk_w = args.bk_w,
             num_l = num_l,
             fname=fname
             )
@@ -384,7 +401,24 @@ def main():
             with open('./EMLC/EDR/main_res/'+fnamesub,'a') as f:
                 writer_obj = csv.writer(f)
                 writer_obj.writerow(datapoint)
+            test_auc_opt0 = datapoint[-5]
+            if test_auc_opt0>test_auc_opt:
+                test_auc_opt = test_auc_opt0
+                y_test_opt,pred22_opt,pred_opt = prediction(model_opt, x_test, y_test, mu, fname,num_classes,
+                    alpha_t, num_l,wnew,n=0,\
+                        alpha_test=alpha_test, alpha_train= alpha_train,\
+                        train_index=train_index,test_index=test_index,\
+                        handle='train_test',pi=None,bs_pred = krr_pred,\
+                            ysum=False,\
+                        xtest=xtest,ytest=ytest,\
+                            x_train=x_train,y_train=y_train)
 
+                np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+\
+                    '_pred22_opt.npy',pred22_opt)
+                np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+\
+                    '_pred_opt.npy',pred_opt)
+                np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+\
+                    '_y_opt.npy',y_test_opt)
 # MSM for weights step
             if args.msm_step:
                 trainData=myDataset(xtrain.to(device),ytrain.to(device))
@@ -413,7 +447,8 @@ def main():
                 num_epochs=args.msm_epochs,
                 device=None,
                 uncertainty=False,
-                bookkeep=True,
+                bookkeep=False,
+                bk_w = args.bk_w,
                 num_l = num_l,
                 fname=fname
                 )
@@ -435,7 +470,7 @@ def main():
             # weights-only step
                 #change data loader (maybe modify later)
             if args.opt_mu:
-                print('opt!')
+                print('opt!', args.opt_mu)
                 a_sl = model_opt.comp_0[:,:num_classes*num_l].detach().cpu().numpy()
                 b_sl = model_opt.comp_0[:,num_classes*num_l:].detach().cpu().numpy()
                 mu = a_sl/(a_sl+b_sl)
@@ -619,7 +654,7 @@ def main():
             for ind_a in ind_add:
                 candidate_index.remove(ind_a)
 
-        elif met =='evicov1':
+        elif met =='evicov_1':
             np.save('./EMLC/EDR/main_res/'+fname+'probs.npy',output_t[0].detach().cpu().numpy())
             theta_p = output_t[1].detach().cpu().numpy()
             a_p = theta_p[:,:num_classes*num_l]
@@ -646,6 +681,45 @@ def main():
 
             print('covshape0,cov.shape')
             probs = np.mean(b2_can/(v2_can*(a2_can-1)),axis=1)+np.mean(cov,axis=1)
+            np.save('./EMLC/EDR/main_res/'+fname+'var.npy',probs)
+
+            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:100])])
+            train_index = train_index+ind_add
+            print(ind_add)
+            for ind_a in ind_add:
+                candidate_index.remove(ind_a)
+        elif met =='evicov_comp':
+            np.save('./EMLC/EDR/main_res/'+fname+'probs.npy',output_t[0].detach().cpu().numpy())
+            theta_p = output_t[1].detach().cpu().numpy()
+            a_p = theta_p[:,:num_classes*num_l]
+            b_p = theta_p[:,num_classes*num_l:]
+            a_sl = model_opt.comp_0[:,:num_classes*num_l].detach().cpu().numpy()
+            b_sl = model_opt.comp_0[:,num_classes*num_l:].detach().cpu().numpy()
+            a_sl = np.repeat(a_sl,len(a_p),axis=0)
+            b_sl = np.repeat(b_sl,len(b_p),axis=0)
+
+            a_new = a_p/wnew+a_sl
+            b_new = b_p/wnew+b_sl
+
+            theta_old = a_sl/(a_sl+b_sl)
+
+
+
+            theta_new = a_new/(a_new+b_new)
+
+            dif_theta = np.diag(cosine_similarity(theta_old,theta_new))
+            print('dif_theta',dif_theta.shape)
+            pred = np.zeros((len(y_can),y_can.shape[-1]))
+            cov1 = np.zeros((len(y_can),y_can.shape[-1]))
+            for i in range(len(y_can)):
+                pred_0 = np.matmul(mu_can[i],theta_new[i].reshape(components_to_test,-1))
+                pred[i] = pred_0 
+            print('predshape',pred.shape)
+            cov = np.matmul(pred,pred.T)
+            np.save('./EMLC/EDR/main_res/'+fname+'cov_can.npy',cov)
+
+            print('covshape0,cov.shape')
+            probs = np.mean(b2_can/(v2_can*(a2_can-1)),axis=1)+np.mean(cov,axis=1)-0.1*dif_theta
             np.save('./EMLC/EDR/main_res/'+fname+'var.npy',probs)
 
             ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:100])])
