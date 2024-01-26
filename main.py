@@ -597,6 +597,7 @@ def main():
         np.save('./EMLC/EDR/main_res/'+fname+'a2_can.npy',a2_can)
         np.save('./EMLC/EDR/main_res/'+fname+'b2_can.npy',b2_can)
         met = args.al_mtd
+        batch_size = args.AL_batch
         # met = 'evi'
         # met = 'evicov'
         # met = 'evicov1'
@@ -604,7 +605,7 @@ def main():
         if met =='bvs':
             probs_sorted,idxs = output_t[0].sort(descending=True)
             U = probs_sorted[:,0]-probs_sorted[:,1]
-            ind_add = list(np.array(candidate_index)[list(U.sort()[1][:100].cpu().numpy())])
+            ind_add = list(np.array(candidate_index)[list(U.sort()[1][:batch_size].cpu().numpy())])
             train_index = train_index+ind_add
             for ind_a in ind_add:
                 candidate_index.remove(ind_a)
@@ -614,7 +615,7 @@ def main():
             probs = np.mean(b2_can/(v2_can*(a2_can-1)),axis=1)
             np.save('./EMLC/EDR/main_res/'+fname+'var.npy',probs.detach().cpu().numpy())
 
-            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:100])])
+            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:batch_size])])
             train_index = train_index+ind_add
             print(ind_add)
             for ind_a in ind_add:
@@ -648,7 +649,7 @@ def main():
             probs = np.mean(b2_can/(v2_can*(a2_can-1)),axis=1)+np.mean(cov,axis=1)
             np.save('./EMLC/EDR/main_res/'+fname+'var.npy',probs)
 
-            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:100])])
+            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:batch_size])])
             train_index = train_index+ind_add
             print(ind_add)
             for ind_a in ind_add:
@@ -683,7 +684,7 @@ def main():
             probs = np.mean(b2_can/(v2_can*(a2_can-1)),axis=1)+np.mean(cov,axis=1)
             np.save('./EMLC/EDR/main_res/'+fname+'var.npy',probs)
 
-            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:100])])
+            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:batch_size])])
             train_index = train_index+ind_add
             print(ind_add)
             for ind_a in ind_add:
@@ -722,7 +723,7 @@ def main():
             probs = np.mean(b2_can/(v2_can*(a2_can-1)),axis=1)+np.mean(cov,axis=1)-0.1*dif_theta
             np.save('./EMLC/EDR/main_res/'+fname+'var.npy',probs)
 
-            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:100])])
+            ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:batch_size])])
             train_index = train_index+ind_add
             print(ind_add)
             for ind_a in ind_add:

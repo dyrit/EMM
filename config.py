@@ -34,7 +34,8 @@ def get_args():
                     help="Number of AL rounds")
     parser.add_argument('--al_mtd', type= str, default="bvs", \
                     help="Type of AL method")
-    
+    parser.add_argument('--AL_batch', type = int, default=100,\
+                    help="Batch size")    
     
     parser.add_argument('--n_components', type = int, default=6,\
                     help="Number of mixture components")
