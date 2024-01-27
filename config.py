@@ -101,6 +101,10 @@ def get_args():
     parser.add_argument('--pi_epochs', type = int, default=1,\
                     help="Number of weights-only training epochs (per step)")
 
-
+# sampling parameters
+    parser.add_argument('--s_lambda', type = float, default=1,\
+                    help="Coefficient for covariance 1")
+    parser.add_argument('--s_eta', type = float, default=0.1,\
+                    help="Coefficient for theta dif ")
     args = parser.parse_args()
     return args, args.seed
