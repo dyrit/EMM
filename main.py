@@ -382,7 +382,7 @@ def main():
             num_epochs=args.l_epochs,
             device=None,
             uncertainty=False,
-            bookkeep=True,
+            bookkeep=bk,
             bk_w = args.bk_w,
             num_l = num_l,
             fname=fname
