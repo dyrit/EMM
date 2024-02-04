@@ -318,3 +318,129 @@ def prediction(model_opt, x_test, y_test, mu, fname,num_classes,
         pred[i] = pred_0 
 
     return y2,pred22, pred[:,col]
+
+def fcv(Yi,Yj):
+    q = len(Yi)
+    Yi_1 = Yi[Yj==1]
+    a = np.sum(Yi_1)
+    c = len(Yi_1)-a
+    Yi_0 = Yi[Yj==0]
+    b = np.sum(Yi_0)
+    d = len(Yi_0)-b
+    DH = (b+c)/q
+    # print( 'a = '+str(a)+'b = '+str(b)+'c = '+str(c)+'d = '+str(d) )
+
+    if DH<1 :
+	    H21 = -DH*np.log(DH)-(a+d)/q*np.log((a+d)/q)
+	    H22 = -b/(b+c)*np.log(b/(b+c))-c/(b+c)*np.log(c/(b+c))
+	    H23 = -a/(a+d)*np.log(a/(a+d))-d/(a+d)*np.log(d/(a+d))
+		
+	    HYY = H21+(b+c)/q*H22+(a+d)/q*H23
+	    wi = len(Yi_1)
+	    wj = len(Yj[Yj==1])
+	    HYi = -wi/q*np.log(wi/q)-(q-wi)/q*np.log((q-wi)/q)
+	    HYj = -wj/q*np.log(wj/q)-(q-wj)/q*np.log((q-wj)/q)
+	
+	    DE = 2-(HYi+HYj)/HYY
+
+    else:
+	    DE = 1
+        
+    if math.isnan(DE):
+        DE = 0
+    return DE
+
+def cvirs_Sample(data, Y, train_index, candidate_index, test_index, clf):
+    # self.data = data
+    # self.Y = Y
+    # self.train_index = train_index
+    # self.candidate_index = candidate_index
+    # self.test_index = test_index
+    pUN = clf.predict_proba(data[candidate_index,:])
+    mIL = 2*pUN-1
+    s_List = []
+    U_s = len(candidate_index)
+    q = pUN.shape[1]
+    
+    v_List = []
+    # yUN = clf.predict(X[candidate_index,:])
+    yUN = np.zeros(pUN.shape)
+
+    yUN[pUN>0.5] = 1
+    yL = Y[train_index,:]
+    
+    L_s = len(train_index)
+    resultList = []
+    for i in range(len(candidate_index)):
+        # compute s
+        S_up = 0
+        for j in range(q):
+            mIL_col = mIL[:,j]
+            tau = np.zeros(U_s)
+            tau[mIL_col<mIL[i,j]] = 1
+            S_up = S_up + U_s - np.sum(tau)
+        S = S_up/(q*(U_s-1))
+        s_List.append(S)
+        # compute v
+        V = 0
+        y_col = yUN[i,:]
+        for k in range(L_s):
+            fYY = fcv(y_col,yL[k,:])
+            # print(fYY)
+            V = V+fYY
+        V = V/L_s
+        v_List.append(V)
+        resultList.append(S*V)
+
+    
+    # targetIndex = resultList.index( min(resultList) )
+    targetIndex = list(map(resultList.index,heapq.nlargest(5, resultList ) ));
+    return targetIndex,resultList,s_List,v_List
+
+
+def cvirs_Sample_emlc( Y, train_index, candidate_index, test_index, pred):
+    # self.data = data
+    # self.Y = Y
+    # self.train_index = train_index
+    # self.candidate_index = candidate_index
+    # self.test_index = test_index
+    pUN = pred
+    mIL = 2*pUN-1
+    s_List = []
+    U_s = len(candidate_index)
+    q = pUN.shape[1]
+    
+    v_List = []
+    # yUN = clf.predict(X[candidate_index,:])
+    yUN = np.zeros(pUN.shape)
+
+    yUN[pUN>0.5] = 1
+    yL = Y[train_index,:]
+    
+    L_s = len(train_index)
+    resultList = []
+    for i in range(len(candidate_index)):
+        # compute s
+        S_up = 0
+        for j in range(q):
+            mIL_col = mIL[:,j]
+            tau = np.zeros(U_s)
+            tau[mIL_col<mIL[i,j]] = 1
+            S_up = S_up + U_s - np.sum(tau)
+        S = S_up/(q*(U_s-1))
+        s_List.append(S)
+        # compute v
+        V = 0
+        y_col = yUN[i,:]
+        for k in range(L_s):
+            fYY = fcv(y_col,yL[k,:])
+            # print(fYY)
+            V = V+fYY
+        V = V/L_s
+        v_List.append(V)
+        resultList.append(S*V)
+
+    
+    # targetIndex = resultList.index( min(resultList) )
+    targetIndex = list(map(resultList.index,heapq.nlargest(5, resultList ) ));
+    return targetIndex
