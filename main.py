@@ -95,6 +95,7 @@ def train_sep_bm(    model,
 
                         if phase == "train":
                             loss.backward()
+                            torch.nn.utils.clip_grad_value_(model.parameters(), 100)
                             optimizer.step()
 
                     # statistics
