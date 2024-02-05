@@ -1,5 +1,6 @@
 import torch
 import random
+import heapq
 import numpy as np
 from sklearn import metrics
 from sklearn.metrics import mean_squared_error
