@@ -183,6 +183,8 @@ def main():
     loss_all = []
     if (args.bookkeep == 'sepopt'):
         bk = True
+    else:
+        bk= False
     for iter_al in range(args.AL_rounds):
         x_train = x[train_index]
         x_test = x[test_index]
