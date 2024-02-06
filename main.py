@@ -873,6 +873,11 @@ def main():
 			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'dift_can.npy',dif_theta)
 			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'tehta_old.npy',theta_old)
 			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'theta_new.npy',theta_new)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'x_can.npy',x_can)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'y_can.npy',y_can)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'mu_can.npy',mu_can)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'a_can.npy',a_p)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'b_can.npy',b_p)
 
 			pred = np.zeros((len(y_can),y_can.shape[-1]))
 			cov1 = np.zeros((len(y_can)))
