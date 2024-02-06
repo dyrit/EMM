@@ -636,7 +636,7 @@ def main():
 			print('predshape',pred.shape)
 			ent = np.sum(pred*np.log(pred),axis=1)
 			U = ent
-			ind_add = list(np.array(candidate_index)[list(np.argsort(U)[:batch_size].cpu().numpy())])
+			ind_add = list(np.array(candidate_index)[list(np.argsort(U)[:batch_size])])
 			train_index = train_index+ind_add
 			for ind_a in ind_add:
 				candidate_index.remove(ind_a)
