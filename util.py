@@ -400,7 +400,7 @@ def cvirs_Sample(data, Y, train_index, candidate_index, test_index, clf):
 	return targetIndex,resultList,s_List,v_List
 
 
-def cvirs_Sample_emlc( Y, train_index, candidate_index, test_index, pred):
+def cvirs_Sample_emlc( Y, train_index, candidate_index, test_index, pred, batch_size=5):
 	# self.data = data
 	# self.Y = Y
 	# self.train_index = train_index
@@ -444,5 +444,6 @@ def cvirs_Sample_emlc( Y, train_index, candidate_index, test_index, pred):
 
 	
 	# targetIndex = resultList.index( min(resultList) )
-	targetIndex = list(map(resultList.index,heapq.nlargest(5, resultList ) ));
+	# targetIndex = list(map(resultList.index,heapq.nlargest(5, resultList ) ));
+	targetIndex = list(np.array(candidate_index)[list(np.argsort(resultList)[::-1][:batch_size])])
 	return targetIndex

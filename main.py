@@ -900,6 +900,7 @@ def main():
 			cov = np.matmul(pred,pred.T)
 			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'cov_can.npy',cov)
 			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'cov2_can.npy',cov2)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'pred_can.npy',pred)
 
 			print('covshape0',cov.shape)
 			probs = np.mean(b2_can/(v2_can*(a2_can-1)),axis=1)+args.s_lambda*(cov1)-args.s_eta*dif_theta
@@ -933,7 +934,7 @@ def main():
 				print('pred_0',pred_0.shape)
 				pred[i] = pred_0 
 			print('predshape',pred.shape)
-			ind_add = cvirs_Sample_emlc( y, train_index, candidate_index, test_index, pred)
+			ind_add = cvirs_Sample_emlc( y, train_index, candidate_index, test_index, pred,batch_size)
 			train_index = train_index+ind_add
 			print(ind_add)
 			for ind_a in ind_add:
