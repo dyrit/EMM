@@ -263,6 +263,8 @@ def BM_NIG_loss(output, target, epoch_num, num_classes=0, \
     loss+=pl*Reg_loss
     return loss
 
+
+
 def BM_weiNIG_loss(output, target, epoch_num, num_classes=0, \
                        annealing_step=10, device=None,model=None,num_l = 13):
     if not device:
@@ -277,6 +279,24 @@ def BM_weiNIG_loss(output, target, epoch_num, num_classes=0, \
     )
     pl=0.01
     loss+=pl*Reg_loss
+    return loss
+
+def BM_weiNIGreg_loss(output, target, epoch_num, num_classes=0, \
+                       annealing_step=10, device=None,model=None,num_l = 13):
+    if not device:
+        device = get_device()
+    alpha = output[0].to(device)
+    # print('alpha',alpha.shape,alpha)
+    output_t = [output[0],output[2],output[3],output[4]]
+    Reg_loss = torch.mean((torch.sum(alpha,dim=1)-1)**2)
+    # print('target',target)
+    evid_loss = torch.mean(((alpha-target)**2)*(output[2]+0.5*output[3]+1/output[4]))
+    loss = torch.mean(
+        nig_loss(target, output_t, epoch_num, num_classes, annealing_step, device=device,lamb=0)
+    )
+    pl=0.01
+    loss+=pl*Reg_loss
+    loss+=0.01*evid_loss
     return loss
 
 def BM_NON_loss(output, target, epoch_num, num_classes=0, \

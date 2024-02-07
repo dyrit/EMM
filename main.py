@@ -299,6 +299,8 @@ def main():
 		#weights pretraining
 		if (args.pretrain_loss=='NIG'):
 			criterion = BM_weiNIG_loss
+        elif (args.pretrain_loss=='NIGreg'):
+            criterion = BM_weiNIGreg_loss
 
 		# criterion = BM_NIG_loss
 
@@ -911,6 +913,67 @@ def main():
 			print(ind_add)
 			for ind_a in ind_add:
 				candidate_index.remove(ind_a)
+		elif met =='evicov3_comp_t':
+			np.save('./EMLC/EDR/main_res/'+fname+'probs.npy',output_t[0].detach().cpu().numpy())
+			theta_p = output_t[1].detach().cpu().numpy()
+			a_p = theta_p[:,:num_classes*num_l]
+			b_p = theta_p[:,num_classes*num_l:]
+			a_sl = model_opt.comp_0[:,:num_classes*num_l].detach().cpu().numpy()
+			b_sl = model_opt.comp_0[:,num_classes*num_l:].detach().cpu().numpy()
+			a_sl = np.repeat(a_sl,len(a_p),axis=0)
+			b_sl = np.repeat(b_sl,len(b_p),axis=0)
+
+			a_new = a_p/wnew+a_sl
+			b_new = b_p/wnew+b_sl
+
+			theta_old = a_sl/(a_sl+b_sl)
+			theta_new = a_new/(a_new+b_new)
+
+			dif_theta = np.diag(cosine_similarity(theta_old,theta_new))
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'dift_can.npy',dif_theta)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'tehta_old.npy',theta_old)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'theta_new.npy',theta_new)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'x_can.npy',x_can)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'y_can.npy',y_can)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'mu_can.npy',mu_can)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'a_can.npy',a_p)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'b_can.npy',b_p)
+
+			pred = np.zeros((len(y_can),y_can.shape[-1]))
+			cov1 = np.zeros((len(y_can)))
+			cov2 = np.zeros((len(y_can),y_can.shape[-1],y_can.shape[-1]))
+			for i in range(len(y_can)):
+				pred_0 = np.matmul(mu_can[i],theta_new[i].reshape(components_to_test,-1))
+				print('pred_0',pred_0.shape)
+				pred[i] = pred_0 
+				covm = model_opt.compute_cov()
+				# print('pis',output_t[0].cpu().detach().numpy())
+
+				for k in range(components_to_test):
+					# print('pis',output_t[0].cpu().detach().numpy()[k])
+					# cov2[i]+=output_t[0].cpu().detach().numpy()[:,k]*covm[k].cpu().detach().numpy()
+					cov2[i]+=mu_can[i][k]*covm[k].cpu().detach().numpy()
+
+				cov2[i]-=np.matmul(pred_0,pred_0.T)
+				cov1[i]=np.linalg.det(cov2[i])
+			print('predshape',pred.shape)
+			cov = np.matmul(pred,pred.T)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'cov_can.npy',cov)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'cov2_can.npy',cov2)
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'pred_can.npy',pred)
+
+			print('covshape0',cov.shape)
+			evid = v2_can+0.5*a2_can+1/b2_can
+			probs = np.mean(evid,axis=1)+args.s_lambda*(cov1)-args.s_eta*dif_theta
+			np.save('./EMLC/EDR/main_res/'+fname+'AL'+str(iter_al)+'var.npy',probs)
+
+			ind_add = list(np.array(candidate_index)[list(np.argsort(probs)[::-1][:batch_size])])
+			train_index = train_index+ind_add
+			print(ind_add)
+			for ind_a in ind_add:
+				candidate_index.remove(ind_a)
+
+
 		elif met =='cvirs':
 			np.save('./EMLC/EDR/main_res/'+fname+'probs.npy',output_t[0].detach().cpu().numpy())
 			theta_p = output_t[1].detach().cpu().numpy()
